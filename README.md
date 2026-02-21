@@ -3,10 +3,19 @@
 Tutoriel pour decouvrir **n8n** depuis zero sur Windows 11.
 On construit une API personnelle qui retourne un "briefing du matin" avec meteo, citation inspirante, et actualites resumees par IA.
 
+## Progression du tutoriel
+
+| Etape | Workflow | Ce qu'on apprend |
+|-------|----------|------------------|
+| 1. Hello World | `01-hello-world.json` | Bases : trigger, node, execution |
+| 2. Briefing API | `02-briefing-api.json` | Webhook, HTTP Request, Merge, Code |
+| 3. Briefing IA | `03-briefing-claude.json` | RSS, HTTP POST, IA/LLM, `$('NodeName')` |
+
 ## Prerequis
 
 - Node.js installe (v18+)
 - Un terminal (Git Bash, PowerShell, ou CMD)
+- Une cle API Anthropic pour l'etape 3 ([console.anthropic.com](https://console.anthropic.com/))
 
 ## Demarrage rapide
 
@@ -17,11 +26,14 @@ npx n8n
 # 2. Ouvrir dans le navigateur
 #    http://localhost:5678
 
-# 3. Tester l'API briefing (une fois le workflow importe et publie)
-curl -s http://localhost:5678/webhook/briefing
+# 3. Importer un workflow (exemple : etape 2)
+#    Dans n8n : Workflows > Add workflow > Import from file
+#    Ou en CLI :
+npx n8n import:workflow --input=workflows/02-briefing-api.json
 
-# 4. Tester l'API briefing IA (etape 3, necessite cle API Anthropic)
-curl -s http://localhost:5678/webhook/briefing-ai
+# 4. Activer le workflow (toggle en haut a droite) puis tester :
+curl -s http://localhost:5678/webhook/briefing
+curl -s http://localhost:5678/webhook/briefing-ai   # etape 3
 ```
 
 Au premier lancement, n8n demande de creer un compte local (owner account).
@@ -38,12 +50,14 @@ Ce workflow minimal illustre les bases :
 - **Edit Fields** : definit un message `{ "message": "Hello n8n!" }`
 
 ### Importer le workflow
+
 1. Dans n8n, aller dans **Workflows** > **Add workflow** > **Import from file**
 2. Selectionner `workflows/01-hello-world.json`
 3. Cliquer sur **Execute Workflow** (bouton play)
 4. Observer le resultat dans le panneau de sortie de chaque node
 
 ### Concepts appris
+
 - Workflow, node, connexion
 - Execution manuelle
 - Inspection des donnees de sortie
@@ -54,7 +68,7 @@ Ce workflow minimal illustre les bases :
 
 **Fichier** : `workflows/02-briefing-api.json`
 
-Ce workflow complet construit une API de briefing matinal :
+Ce workflow construit une API de briefing matinal avec deux appels en parallele :
 
 ```
 Webhook GET /briefing
@@ -74,9 +88,10 @@ Webhook GET /briefing
 ```
 
 ### Importer et activer
+
 1. Importer `workflows/02-briefing-api.json` dans n8n
 2. **Activer le workflow** (toggle en haut a droite)
-3. Tester dans le navigateur : **http://localhost:5678/webhook/briefing**
+3. Tester dans le navigateur : `http://localhost:5678/webhook/briefing`
 
 ### Reponse attendue
 
@@ -110,6 +125,7 @@ Webhook GET /briefing
 | Respond to Webhook | Response | Retourne le JSON au client |
 
 ### Concepts appris
+
 - **Webhook** : transformer un workflow en API
 - **HTTP Request** : appeler des APIs externes
 - **Merge** : combiner plusieurs flux de donnees
@@ -122,7 +138,8 @@ Webhook GET /briefing
 
 **Fichier** : `workflows/03-briefing-claude.json`
 
-Ce workflow enrichit le briefing avec des actualites RSS et un resume genere par Claude (IA) :
+Ce workflow enrichit le briefing avec des actualites RSS et un resume genere par Claude (IA).
+Contrairement a l'etape 2, le flux est **sequentiel** (pas de Merge) :
 
 ```
 Webhook GET /briefing-ai
@@ -151,10 +168,8 @@ Webhook GET /briefing-ai
 
 ### Pourquoi un flux sequentiel ?
 
-Contrairement a l'etape 2 (flux parallele + Merge), ce workflow est **sequentiel**. Pourquoi ?
-
-- Le node RSS retourne N items (un par article), ce qui complique le Merge avec 3+ sources
-- Le pattern `$('NodeName')` permet de recuperer les donnees de n'importe quel node en amont
+- Le node RSS retourne **N items** (un par article), ce qui complique le Merge avec 3+ sources
+- Le pattern **`$('NodeName')`** permet de recuperer les donnees de n'importe quel node en amont
 - Plus simple a suivre pour un tutoriel
 
 ### Importer et configurer
@@ -162,14 +177,14 @@ Contrairement a l'etape 2 (flux parallele + Merge), ce workflow est **sequentiel
 1. Importer `workflows/03-briefing-claude.json` dans n8n
 2. **Configurer la cle API Anthropic** (voir section ci-dessous)
 3. **Activer le workflow** (toggle en haut a droite)
-4. Tester : **http://localhost:5678/webhook/briefing-ai**
+4. Tester : `http://localhost:5678/webhook/briefing-ai`
 
 ### Configurer la cle API Anthropic
 
 Le node "Call Claude" necessite une cle API Anthropic pour fonctionner :
 
 1. **Obtenir une cle** : aller sur [console.anthropic.com](https://console.anthropic.com/) > API Keys > Create Key
-2. **Editer le node** : dans n8n, ouvrir le workflow, double-cliquer sur le node "Call Claude"
+2. **Editer le node** : dans n8n, ouvrir le workflow, double-cliquer sur le node **"Call Claude"**
 3. **Remplacer le placeholder** : dans les headers, remplacer `YOUR_ANTHROPIC_API_KEY` par votre vraie cle
 4. **Sauvegarder** et activer le workflow
 
@@ -217,6 +232,7 @@ Le node "Call Claude" necessite une cle API Anthropic pour fonctionner :
 | 8 | Respond to Webhook | Response | Retourne le JSON au client |
 
 ### Concepts appris
+
 - **RSS Feed Read** : lire un flux RSS (actualites, blogs, podcasts)
 - **HTTP POST avec headers** : envoyer des requetes authentifiees (cle API)
 - **Integration IA/LLM** : utiliser Claude pour generer du contenu
@@ -229,20 +245,23 @@ Le node "Call Claude" necessite une cle API Anthropic pour fonctionner :
 
 | API | URL | Auth | Description |
 |-----|-----|------|-------------|
-| ZenQuotes | `https://zenquotes.io/api/random` | Aucune | Citation aleatoire |
-| Open-Meteo | `https://api.open-meteo.com/v1/forecast` | Aucune | Meteo mondiale (codes WMO) |
+| ZenQuotes | `https://zenquotes.io/api/random` | Aucune | Citation aleatoire (rate limit : 5 req/30s) |
+| Open-Meteo | `https://api.open-meteo.com/v1/forecast` | Aucune | Meteo mondiale gratuite (codes WMO) |
 | Le Monde RSS | `https://www.lemonde.fr/rss/une.xml` | Aucune | Flux RSS actualites (etape 3) |
-| Anthropic (Claude) | `https://api.anthropic.com/v1/messages` | Cle API (`x-api-key`) | Generation de texte IA (etape 3) |
+| Anthropic | `https://api.anthropic.com/v1/messages` | Cle API (`x-api-key`) | Generation de texte IA (etape 3) |
 
 ### Changer la ville pour la meteo
 
 Modifier les parametres `latitude` et `longitude` dans l'URL du node "Get Weather" :
-- Paris : `latitude=48.8566&longitude=2.3522`
-- Berlin : `latitude=52.52&longitude=13.405`
-- New York : `latitude=40.7128&longitude=-74.006`
-- Tokyo : `latitude=35.6762&longitude=139.6503`
 
-> Note : Open-Meteo est une API gratuite et open-source couvrant le monde entier. Pas besoin de cle API.
+| Ville | Latitude | Longitude |
+|-------|----------|-----------|
+| Paris | 48.8566 | 2.3522 |
+| Berlin | 52.52 | 13.405 |
+| New York | 40.7128 | -74.006 |
+| Tokyo | 35.6762 | 139.6503 |
+
+> Open-Meteo est une API gratuite et open-source couvrant le monde entier. Pas besoin de cle API.
 
 ---
 
@@ -250,6 +269,7 @@ Modifier les parametres `latitude` et `longitude` dans l'URL du node "Get Weathe
 
 ```
 n8n-test/
+  CLAUDE.md                    # Instructions pour Claude Code
   README.md                    # Ce fichier
   workflows/
     01-hello-world.json        # Workflow Hello World (etape 1)
@@ -263,8 +283,8 @@ n8n-test/
 
 - **Schedule Trigger** : executer automatiquement chaque matin a 7h
 - **Email** : envoyer le briefing par email (node Gmail ou SMTP)
-- **Autres sources** : cours crypto (CoinGecko API), meteo multi-villes
 - **Telegram Bot** : envoyer le briefing sur Telegram
+- **Autres sources** : cours crypto (CoinGecko API), meteo multi-villes
 - **Base de donnees** : sauvegarder les briefings quotidiens
 
 ---
@@ -281,4 +301,14 @@ n8n-test/
 | Erreur 401 sur Call Claude | Verifier la cle API dans le header `x-api-key` du node |
 | Erreur 400 sur Call Claude | Verifier que le body JSON est bien forme (voir Build Prompt) |
 | RSS Le Monde indisponible | Le flux RSS peut etre temporairement en maintenance |
-| `resume_ia` = "Resume indisponible" | Verifier la cle API et les credits sur console.anthropic.com |
+| `resume_ia` = "Resume indisponible" | Verifier la cle API et les credits sur [console.anthropic.com](https://console.anthropic.com/) |
+
+---
+
+## Liens utiles
+
+- [Documentation n8n](https://docs.n8n.io/)
+- [n8n Node Reference](https://docs.n8n.io/integrations/builtin/core-nodes/)
+- [API Anthropic (Claude)](https://docs.anthropic.com/en/api/messages)
+- [Open-Meteo API](https://open-meteo.com/en/docs)
+- [ZenQuotes API](https://zenquotes.io/)
