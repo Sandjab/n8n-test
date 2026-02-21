@@ -1,0 +1,13 @@
+# n8n local data
+.n8n/
+
+# Claude Code
+.claude/
+
+# Node
+node_modules/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
