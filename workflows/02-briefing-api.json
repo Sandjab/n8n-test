@@ -1,0 +1,143 @@
+{
+  "name": "Morning Briefing API",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "briefing",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "briefing-webhook-id"
+    },
+    {
+      "parameters": {
+        "url": "https://zenquotes.io/api/random",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000002",
+      "name": "Get Quote",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://api.open-meteo.com/v1/forecast?latitude=48.8566&longitude=2.3522&current=temperature_2m,weather_code&timezone=Europe/Paris",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000003",
+      "name": "Get Weather",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 420]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000004",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Le Merge par position combine les items : item 0 contient les deux sources\nconst data = items[0].json;\n\n// Extraire la citation (zenquotes retourne un tableau dans le merge)\nlet quote = 'Citation indisponible';\nlet author = 'Inconnu';\n\n// Chercher les champs de citation dans les donnees mergees\nif (data.q) {\n  quote = data.q;\n  author = data.a || author;\n} else if (Array.isArray(data)) {\n  quote = data[0]?.q || quote;\n  author = data[0]?.a || author;\n}\n\n// Chercher dans tous les items au cas ou\nfor (const item of items) {\n  const d = item.json;\n  if (d.q && quote === 'Citation indisponible') {\n    quote = d.q;\n    author = d.a || author;\n  }\n}\n\n// Extraire la meteo (Open-Meteo format)\nlet temperature = 'N/A';\nlet weatherCode = 0;\n\nif (data.current) {\n  temperature = Math.round(data.current.temperature_2m);\n  weatherCode = data.current.weather_code || 0;\n} else {\n  // Chercher dans tous les items\n  for (const item of items) {\n    if (item.json.current) {\n      temperature = Math.round(item.json.current.temperature_2m);\n      weatherCode = item.json.current.weather_code || 0;\n      break;\n    }\n  }\n}\n\n// Convertir weather_code WMO en description\nconst weatherDescriptions = {\n  0: 'ciel degage', 1: 'peu nuageux', 2: 'partiellement nuageux', 3: 'couvert',\n  45: 'brouillard', 48: 'brouillard givrant',\n  51: 'bruine legere', 53: 'bruine', 55: 'bruine forte',\n  61: 'pluie legere', 63: 'pluie', 65: 'pluie forte',\n  71: 'neige legere', 73: 'neige', 75: 'neige forte',\n  80: 'averses legeres', 81: 'averses', 82: 'averses fortes',\n  95: 'orage', 96: 'orage avec grele'\n};\nconst condition = weatherDescriptions[weatherCode] || 'inconnu';\n\n// Construire le briefing\nconst now = new Date();\nconst dateStr = now.toLocaleDateString('fr-FR', {\n  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'\n});\n\nreturn [{\n  json: {\n    briefing: {\n      date: dateStr,\n      meteo: {\n        ville: 'Paris',\n        temperature: `${temperature}°C`,\n        condition: condition,\n        code_wmo: weatherCode\n      },\n      citation: {\n        texte: quote,\n        auteur: author\n      },\n      message: `Bonjour ! Il fait ${temperature}°C a Paris (${condition}). Citation du jour : \\\"${quote}\\\" - ${author}`\n    }\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000005",
+      "name": "Format Briefing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000006",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Quote",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Weather",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Quote": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Weather": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Format Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Briefing": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1
+}
